@@ -5,7 +5,8 @@ An org-agnostic, configuration-driven Salesforce integration framework for build
 ## Features
 
 - **🔧 Configuration-Driven**: All behavior configured via Custom Metadata Type records
-- **📊 Smart Pagination**: Built-in pagination support with extensible strategy pattern
+- **📊 Smart Pagination**: Built-in REST (offset) and GraphQL (cursor) pagination strategies
+- **🔗 Multi-Protocol**: REST (GET) and GraphQL (POST) supported via the same pipeline
 - **⏱️ State Tracking**: Per-mapping pagination state persistence via Custom Settings
 - **📝 Logging**: Integrated Nebula Logger with per-integration and per-mapping tag control
 - **🚀 Queueable Execution**: Async job scheduling with concurrent execution limits
@@ -230,31 +231,30 @@ System.enqueueJob(new PullQueueable('Account'));
 Represents a single API endpoint with pagination and logging config.
 
 **Key Fields:**
-- `Endpoint_Name__c` (Text) — Unique identifier for this endpoint
-- `Base_Url__c` (URL) — Root API URL (combined with mapping-specific paths)
 - `Named_Credential__c` (Text) — Named Credential or External Credential name
+- `Base_Path__c` (Text) — Base API path (e.g. `/api/v1/`) or GraphQL path (e.g. `/graphql`)
+- `Protocol_Type__c` (Picklist) — `REST` (default) or `GraphQL`
 - `Pagination_Type__c` (Text) — Shorthand pagination strategy key
-  - Built-in: `offset` (CompanoOffsetPaginationStrategy)
-  - Custom: Register in PaginationStrategyFactory registerBuiltInStrategies()
-- `Pagination_Config__c` (Text) — Full Java class name (overrides Pagination_Type__c)
-  - Example: `com.example.CustomPaginationStrategy`
-- `Page_Size__c` (Number) — Records per API call (default: 100)
-- `Enable_Nebula_Logger__c` (Checkbox) — Enable/disable logging (default: true)
-- `Timeout_Seconds__c` (Number) — HTTP timeout in seconds (default: 30)
+  - Built-in: `offset` (REST), `graphql` (GraphQL)
+  - Custom: Register in `PaginationStrategyFactory.registerBuiltInStrategies()`
+- `Pagination_Config__c` (Text) — Full Apex class name (overrides Pagination_Type__c)
+- `External_ID_Field__c` (Text) — External ID field for upsert (e.g. `External_ID__c`)
+- `Timeout__c` (Number) — HTTP timeout in milliseconds (default: 30000)
 
 #### Integration_Mapping__mdt
 
 Maps a Salesforce object to API endpoint and transformation rules.
 
 **Key Fields:**
-- `Mapping_Name__c` (Text) — Identifier for this mapping (e.g., "Account")
-- `Target_Object__c` (Text) — Salesforce SObject API name (e.g., "Account")
+- `Target_Object__c` (Text) — Salesforce SObject API name (e.g., `Account`)
+- `Source_Object__c` (Text) — External system resource name
 - `Endpoint__c` (Metadata Lookup) — Reference to Integration_Endpoint__mdt
-- `External_Id_Field__c` (Text) — External ID field for upserting (e.g., "External_ID__c")
-- `DataWeave_Transform_Resource__c` (Text) — Mule DataWeave resource name (optional)
-- `Pagination_Enabled__c` (Checkbox) — Use pagination for this mapping (default: true)
-- `Pagination_Page_Size__c` (Number) — Override page size (uses endpoint default if blank)
-- `Logger_Tags__c` (Text) — Comma-separated Nebula Logger tags (e.g., "account,sync,compano")
+- `Resource_Path__c` (Text) — REST resource path appended to Base_Path__c (e.g., `products`)
+- `GraphQL_Query__c` (Long Text) — Full GraphQL query string with `$first: Int, $after: String` variables. Only used when endpoint `Protocol_Type__c = GraphQL`.
+- `Dataweave_Map_Name__c` (Text) — DataWeave script name for transformation
+- `External_Id_Field_Overide__c` (Text) — Override the endpoint's external ID field per mapping
+- `Page_Size__c` (Number) — Override page size (uses endpoint default if blank)
+- `Sync_Order__c` (Number) — Execution order when multiple mappings share one endpoint
 
 ### Custom Settings
 
@@ -281,11 +281,12 @@ force-app/main/default/
 │   │   └── test/                                   # Core tests
 │   │
 │   ├── pagination/
-│   │   ├── PaginationStrategy.cls                  # Base pagination class
-│   │   ├── PaginationState.cls                     # State wrapper
+│   │   ├── PaginationStrategy.cls                  # Base pagination class (getHttpMethod, buildRequestBody)
+│   │   ├── PaginationState.cls                     # State wrapper (offset + customData for cursor)
 │   │   ├── PaginationResult.cls                    # Result wrapper
-│   │   ├── PaginationStrategyFactory.cls           # Strategy resolver
-│   │   ├── CompanoOffsetPaginationStrategy.cls     # Built-in Compano impl
+│   │   ├── PaginationStrategyFactory.cls           # Strategy resolver (offset, graphql)
+│   │   ├── CompanoOffsetPaginationStrategy.cls     # REST offset-based pagination
+│   │   ├── GraphQLCursorPaginationStrategy.cls     # GraphQL cursor-based pagination
 │   │   └── test/                                   # Pagination tests
 │   │
 │   ├── queueable/

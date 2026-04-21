@@ -48,12 +48,13 @@ public virtual class PullQueueable extends AbstractPullQueueable {
             strategy.initialize(endpoint, mapping, lastRunTime);
             Logger.debug('Created strategy for pagination type: ' + endpoint.Pagination_Type__c);
 
-            // Get paginated URL (now includes base path and resource path)
+            // Get request URL and optional body (GraphQL strategies override these)
             String paginatedUrl = strategy.modifyEndpointUrl(endpoint.Base_Path__c + mapping.Resource_Path__c, paginationState);
-            Logger.debug('Making callout to: ' + paginatedUrl);
-            
+            String requestBody = strategy.buildRequestBody(paginationState);
+            Logger.debug('Making callout to: ' + paginatedUrl + ' method: ' + strategy.getHttpMethod());
+
             // Make HTTP callout
-            HttpResponse response = makeCallout('GET', paginatedUrl);
+            HttpResponse response = makeCallout(strategy.getHttpMethod(), paginatedUrl, requestBody);
             Logger.debug('Got response status: ' + response.getStatusCode());
             Logger.debug('Response body summary: ' + summarizeTextForLog(response.getBody()));
 

@@ -26,6 +26,7 @@ public virtual class PaginationStrategyFactory {
     @TestVisible
     private static void registerBuiltInStrategies() {
         strategyTypes.put('offset', CompanoOffsetPaginationStrategy.class);
+        strategyTypes.put('graphql', GraphQLCursorPaginationStrategy.class);
     }
     
     /**

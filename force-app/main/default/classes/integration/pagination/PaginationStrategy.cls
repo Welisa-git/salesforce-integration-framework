@@ -336,6 +336,23 @@ public abstract class PaginationStrategy {
         return null;
     }
 
+    /**
+     * @description HTTP method to use for the callout. Override in GraphQL strategies to return 'POST'.
+     * @return String HTTP method (default: 'GET')
+     */
+    public virtual String getHttpMethod() {
+        return 'GET';
+    }
+
+    /**
+     * @description Build the request body for the callout. Override in GraphQL strategies to return the query JSON.
+     * @param state Current pagination state (used to inject cursor variable)
+     * @return String Request body or null for GET requests
+     */
+    public virtual String buildRequestBody(PaginationState state) {
+        return null;
+    }
+
     // Add a new helper method for consistent logging
     protected void logResponseSummary(HttpResponse response, List<Object> records, Boolean hasMoreData) {
         if (response == null) {

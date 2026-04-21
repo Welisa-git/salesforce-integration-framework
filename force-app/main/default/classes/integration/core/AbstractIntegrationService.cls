@@ -117,39 +117,47 @@ public abstract class AbstractIntegrationService {
     /**
      * @description Makes an HTTP callout to the configured endpoint using Named Credentials
      * @param method The HTTP method to use
-     * @param payload The payload to send (optional)
+     * @param urlPath The URL path to append to the Named Credential base URL
      * @return HttpResponse The response from the endpoint
      */
-    @TestVisible protected HttpResponse makeCallout(String method, String payload) {
+    @TestVisible protected HttpResponse makeCallout(String method, String urlPath) {
+        return makeCallout(method, urlPath, null);
+    }
+
+    /**
+     * @description Makes an HTTP callout with a separate request body (used for GraphQL POST requests)
+     * @param method The HTTP method to use
+     * @param urlPath The URL path to append to the Named Credential base URL
+     * @param requestBody The request body to send (null for GET requests)
+     * @return HttpResponse The response from the endpoint
+     */
+    @TestVisible protected HttpResponse makeCallout(String method, String urlPath, String requestBody) {
         try {
             Http http = new Http();
             HttpRequest request = new HttpRequest();
-            
+
             // Build the endpoint URL using Named Credentials
             String baseUrl = 'callout:' + endpoint.Named_Credential__c;
-            request.setEndpoint(baseUrl + payload);
+            request.setEndpoint(baseUrl + (urlPath != null ? urlPath : ''));
             request.setMethod(method);
-            
-            // Fixed coalescing operator issue by handling null case explicitly
-            Integer timeout = endpoint.Timeout__c != null ? 
-                Integer.valueOf(endpoint.Timeout__c) : 
+
+            Integer timeout = endpoint.Timeout__c != null ?
+                Integer.valueOf(endpoint.Timeout__c) :
                 Integer.valueOf(DEFAULT_TIMEOUT);
             request.setTimeout(timeout);
-            
-            if (!'GET'.equalsIgnoreCase(method) && String.isNotBlank(payload)) {
-                request.setBody(payload);
+
+            if (String.isNotBlank(requestBody)) {
+                request.setBody(requestBody);
                 request.setHeader('Content-Type', 'application/json');
             }
-            // Modified Logger call
-            Logger.debug('Making HTTP callout to ' + baseUrl + payload + ' via ' + endpoint.Named_Credential__c);
-            
+            Logger.debug('Making HTTP callout to ' + baseUrl + urlPath + ' via ' + endpoint.Named_Credential__c);
+
             HttpResponse response = http.send(request);
             logResponse(response);
-            
+
             return response;
-            
+
         } catch (Exception e) {
-            // Modified Logger call
             Logger.error('HTTP callout failed: ' + e.getMessage());
             throw new IntegrationException('HTTP callout failed: ' + e.getMessage());
         }

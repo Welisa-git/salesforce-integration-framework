@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Protocol_Type__c</fullName>
+    <defaultValue>"REST"</defaultValue>
+    <description>Protocol type used for this endpoint: REST (GET) or GraphQL (POST with query body)</description>
+    <externalId>false</externalId>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <label>Protocol Type</label>
+    <required>false</required>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>REST</fullName>
+                <default>true</default>
+                <label>REST</label>
+            </value>
+            <value>
+                <fullName>GraphQL</fullName>
+                <default>false</default>
+                <label>GraphQL</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>
