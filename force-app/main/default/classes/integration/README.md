@@ -51,13 +51,13 @@ Scheduled and throttled execution:
    - Upserts into Salesforce
    - Chains next page or next mapping
 
-4. **Scheduling (aanbevolen)**: Stel één `UniversalIntegrationScheduler` in die elke 5–15 minuten draait. Hij controleert per mapping de `Execution_Frequency_Type__c` en slaat over als het interval nog niet verstreken is.
+4. **Scheduling (recommended)**: Set up one `UniversalIntegrationScheduler` running every 5–15 minutes. It checks each mapping's `Execution_Frequency_Type__c` and skips mappings whose interval has not yet elapsed.
    ```apex
    UniversalIntegrationScheduler.scheduleUniversalSchedler('Integration_Master_Scheduler', 15);
    ```
-   Per mapping staat de uitvoerstatus in `IntegrationExecutionState__c` (Hierarchy Custom Setting).
+   Per-mapping execution state is stored in `IntegrationExecutionState__c` (Hierarchy Custom Setting).
 
-5. **Scheduling (legacy)**: `IntegrationSchedulable` kan nog steeds gebruikt worden voor één endpoint met een vaste cron expressie.
+5. **Scheduling (legacy)**: `IntegrationSchedulable` can still be used to schedule a single endpoint with a fixed cron expression.
 
 ---
 
