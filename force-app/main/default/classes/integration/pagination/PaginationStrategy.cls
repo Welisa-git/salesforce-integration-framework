@@ -58,17 +58,6 @@ public abstract class PaginationStrategy {
         // is handled directly by the Queueable to maintain instance state.
         Logger.debug('PaginationStrategy.processSObjects: Returning input list. Object-specific processing delegated to Queueable.');
         return sObjects != null ? sObjects : new List<SObject>();
-        /* OLD LOGIC - REMOVED
-        TypedSyncService syncService = PaginationStrategy.getSyncServiceInstance(mapping?.Target_Object__c);
-        if (syncService != null) {
-            try {
-                return syncService.processSObjects(sObjects);
-            } catch (Exception e) {
-                Logger.error('Error processing records with sync service: ' +  mapping.Target_Object__c + e.getMessage());
-            }
-        }
-        return sObjects != null ? sObjects : new List<SObject>();
-        */
     }
     
     /**
@@ -363,14 +352,12 @@ public abstract class PaginationStrategy {
         Integer statusCode = response.getStatusCode();
         Integer recordCount = records != null ? records.size() : 0;
         
-        Logger.info('API Response Summary - Status: ' + statusCode + 
-                  ', Records: ' + recordCount + 
+        Logger.info('API Response Summary - Status: ' + statusCode +
+                  ', Records: ' + recordCount +
                   ', Has More: ' + hasMoreData +
                   ', Endpoint: ' + endpoint?.DeveloperName +
                   ', Mapping: ' + mapping?.DeveloperName);
-        
-        Logger.saveLog();
-        
+
         String responseBody = response.getBody();
         Logger.debug('Response body summary: ' + (responseBody == null ? 'null' : 'len=' + responseBody.length()));
     }

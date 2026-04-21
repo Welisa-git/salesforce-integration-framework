@@ -166,6 +166,30 @@ public virtual class IntegrationMappingCache {
         Logger.debug('Refreshed cache for endpoint: ' + endpointName);
     }
     
+    /**
+     * @description Gets all active Integration_Endpoint__mdt records
+     * Used by UniversalIntegrationScheduler to iterate through endpoints for frequency checking
+     * @return List<Integration_Endpoint__mdt> List of all active endpoints
+     */
+    public static List<Integration_Endpoint__mdt> getAllActiveEndpoints() {
+        try {
+            List<Integration_Endpoint__mdt> endpoints = [
+                SELECT DeveloperName, Active__c, Named_Credential__c, Timeout__c,
+                       Base_Path__c, Pagination_Type__c, Pagination_Config__c,
+                       External_ID_Field__c
+                FROM Integration_Endpoint__mdt
+                WHERE Active__c = true
+                ORDER BY DeveloperName
+            ];
+
+            Logger.debug('Retrieved ' + endpoints.size() + ' active endpoints');
+            return endpoints;
+        } catch (Exception e) {
+            Logger.error('Error loading active endpoints: ' + e.getMessage());
+            return new List<Integration_Endpoint__mdt>();
+        }
+    }
+
     private static void loadMappingsForEndpoint(String endpointName) {
         // --- Check for mock mappings first in test context ---
         if (Test.isRunningTest() && mockMappingsByEndpoint != null && mockMappingsByEndpoint.containsKey(endpointName.toLowerCase())) {

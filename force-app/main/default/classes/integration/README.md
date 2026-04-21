@@ -53,7 +53,7 @@ Scheduled and throttled execution:
 
 4. **Scheduling (recommended)**: Set up one `UniversalIntegrationScheduler` running every 5–15 minutes. It checks each mapping's `Execution_Frequency_Type__c` and skips mappings whose interval has not yet elapsed.
    ```apex
-   UniversalIntegrationScheduler.scheduleUniversalSchedler('Integration_Master_Scheduler', 15);
+   UniversalIntegrationScheduler.scheduleUniversalScheduler('Integration_Master_Scheduler', 15);
    ```
    Per-mapping execution state is stored in `IntegrationExecutionState__c` (Hierarchy Custom Setting).
 

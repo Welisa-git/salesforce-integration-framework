@@ -4,10 +4,6 @@
  */
 public abstract class AbstractPullQueueable extends AbstractIntegrationService implements Queueable, Database.AllowsCallouts {
     
-    // Add mapping cache
-    private static Map<String, Map<Decimal, Integration_Mapping__mdt>> mappingCache = 
-        new Map<String, Map<Decimal, Integration_Mapping__mdt>>();
-    
     @TestVisible protected final String operationName;
     @TestVisible protected final DateTime lastRunTime;
     @TestVisible protected PaginationState paginationState;
@@ -204,7 +200,11 @@ public abstract class AbstractPullQueueable extends AbstractIntegrationService i
                 Logger.error('External ID field ' + externalIdField + ' not found on ' + sObjectType);
                 return;
             }
-            
+            if (!externalIdFieldToken.getDescribe().isExternalId() && !externalIdFieldToken.getDescribe().isIdLookup()) {
+                Logger.error('Field ' + externalIdField + ' is not marked as External ID on ' + sObjectType);
+                return;
+            }
+
             // Perform the upsert using the PRE-PROCESSED list
             Logger.info('Starting upsert operation for: ' + describe.getName() + ' records: ' + recordsToUpsert.size());
             Database.UpsertResult[] results = Database.upsert(recordsToUpsert, externalIdFieldToken, false);

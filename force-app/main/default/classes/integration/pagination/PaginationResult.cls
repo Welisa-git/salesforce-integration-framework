@@ -19,7 +19,7 @@ public virtual class PaginationResult {
      */
     public PaginationResult(List<Object> records, PaginationState nextState, Boolean hasMoreData) {
         this.records = records;
-        this.sObjects = null;
+        this.sObjects = new List<SObject>();
         this.nextState = nextState;
         this.hasMoreData = hasMoreData;
         this.errorMessage = null;
@@ -33,8 +33,8 @@ public virtual class PaginationResult {
      * @param hasMoreData Whether more records exist
      */
     public PaginationResult(List<SObject> sObjects, PaginationState nextState, Boolean hasMoreData) {
-        this.records = null;
-        this.sObjects = sObjects;
+        this.records = new List<Object>();
+        this.sObjects = sObjects != null ? sObjects : new List<SObject>();
         this.nextState = nextState;
         this.hasMoreData = hasMoreData;
         this.errorMessage = null;

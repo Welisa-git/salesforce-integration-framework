@@ -71,10 +71,9 @@ public abstract class AbstractIntegrationService {
         
         if (!errors.isEmpty()) {
             String errorMsg = String.join(errors, ', ');
-            // Log success generically to avoid potential issues with logger processing names
-            Logger.info('Integration configurations validated successfully.');
             throw new IntegrationException(errorMsg);
         }
+        Logger.info('Integration configurations validated successfully.');
     }
     
     /**

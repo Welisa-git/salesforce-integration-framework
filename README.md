@@ -207,7 +207,7 @@ One scheduled job handles all active mappings. Each mapping controls its own fre
 
 ```apex
 // One-time setup in Execute Anonymous — runs every 5 minutes:
-UniversalIntegrationScheduler.scheduleUniversalSchedler('Integration_Master_Scheduler', 5);
+UniversalIntegrationScheduler.scheduleUniversalScheduler('Integration_Master_Scheduler', 5);
 ```
 
 Supported frequency types on `Integration_Mapping__mdt`:

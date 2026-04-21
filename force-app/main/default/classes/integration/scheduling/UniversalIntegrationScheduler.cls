@@ -128,13 +128,13 @@ public class UniversalIntegrationScheduler implements Schedulable {
      * @param intervalMinutes The interval in minutes (e.g., 5, 15, 30)
      * @return String The job ID of the scheduled job
      */
-    public static String scheduleUniversalSchedler(String jobName, Integer intervalMinutes) {
+    public static String scheduleUniversalScheduler(String jobName, Integer intervalMinutes) {
         if (String.isBlank(jobName)) {
             throw new IllegalArgumentException('Job name cannot be blank');
         }
-        
-        if (intervalMinutes == null || intervalMinutes <= 0 || intervalMinutes > 59) {
-            throw new IllegalArgumentException('Interval must be between 1 and 59 minutes');
+
+        if (intervalMinutes == null || intervalMinutes <= 0) {
+            throw new IllegalArgumentException('Interval must be greater than 0');
         }
         
         try {
@@ -162,19 +162,10 @@ public class UniversalIntegrationScheduler implements Schedulable {
      * @return String A cron expression that approximates the interval
      */
     private static String buildCronExpression(Integer intervalMinutes) {
-        // Note: Salesforce cron expressions have limitations for minute intervals
-        // This creates an expression that runs at specific hours/minutes
-        // For production, consider using a scheduled action or Flow Timer trigger instead
-        
-        if (intervalMinutes <= 5) {
-            return '0 * * * * ?'; // Every minute (closest approximation)
-        } else if (intervalMinutes <= 15) {
-            return '0 0/15 * * * ?'; // Every 15 minutes
-        } else if (intervalMinutes <= 30) {
-            return '0 0/30 * * * ?'; // Every 30 minutes
-        } else {
-            return '0 0 * * * ?'; // Every hour (default fallback)
+        if (intervalMinutes >= 60) {
+            return '0 0 * * * ?'; // every hour
         }
+        return '0 0/' + intervalMinutes + ' * * * ?'; // e.g. 0 0/10 * * * ?
     }
     
     /**

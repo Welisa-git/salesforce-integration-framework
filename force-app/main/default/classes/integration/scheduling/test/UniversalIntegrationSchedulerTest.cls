@@ -29,7 +29,7 @@ private class UniversalIntegrationSchedulerTest {
     static void testScheduleUniversalScheduler_Valid() {
         Test.startTest();
         try {
-            String jobId = UniversalIntegrationScheduler.scheduleUniversalSchedler('Test Scheduler', 15);
+            String jobId = UniversalIntegrationScheduler.scheduleUniversalScheduler('Test Scheduler', 15);
             System.assertNotEquals(null, jobId, 'Job ID should be returned');
         } catch (Exception e) {
             System.assert(false, 'Should not throw exception for valid parameters: ' + e.getMessage());
@@ -41,7 +41,7 @@ private class UniversalIntegrationSchedulerTest {
     static void testScheduleUniversalScheduler_BlankJobName() {
         Test.startTest();
         try {
-            UniversalIntegrationScheduler.scheduleUniversalSchedler('', 15);
+            UniversalIntegrationScheduler.scheduleUniversalScheduler('', 15);
             System.assert(false, 'Should throw exception for blank job name');
         } catch (IllegalArgumentException e) {
             System.assert(e.getMessage().contains('Job name cannot be blank'));
@@ -53,22 +53,22 @@ private class UniversalIntegrationSchedulerTest {
     static void testScheduleUniversalScheduler_InvalidInterval() {
         Test.startTest();
         try {
-            UniversalIntegrationScheduler.scheduleUniversalSchedler('Test', 0);
+            UniversalIntegrationScheduler.scheduleUniversalScheduler('Test', 0);
             System.assert(false, 'Should throw exception for invalid interval');
         } catch (IllegalArgumentException e) {
-            System.assert(e.getMessage().contains('Interval must be between 1 and 59 minutes'));
+            System.assert(e.getMessage().contains('Interval must be greater than 0'));
         }
         Test.stopTest();
     }
-    
+
     @IsTest
-    static void testScheduleUniversalScheduler_IntervalTooHigh() {
+    static void testScheduleUniversalScheduler_IntervalHighValid() {
         Test.startTest();
         try {
-            UniversalIntegrationScheduler.scheduleUniversalSchedler('Test', 120);
-            System.assert(false, 'Should throw exception for interval > 59');
-        } catch (IllegalArgumentException e) {
-            System.assert(e.getMessage().contains('Interval must be between 1 and 59 minutes'));
+            String jobId = UniversalIntegrationScheduler.scheduleUniversalScheduler('120 Min Scheduler', 120);
+            System.assertNotEquals(null, jobId, 'Interval >= 60 should schedule hourly and be valid');
+        } catch (Exception e) {
+            System.assert(false, 'Interval of 120 should not throw: ' + e.getMessage());
         }
         Test.stopTest();
     }
@@ -105,7 +105,7 @@ private class UniversalIntegrationSchedulerTest {
     static void testScheduleUniversalScheduler_5MinuteInterval() {
         Test.startTest();
         try {
-            String jobId = UniversalIntegrationScheduler.scheduleUniversalSchedler('5 Min Scheduler', 5);
+            String jobId = UniversalIntegrationScheduler.scheduleUniversalScheduler('5 Min Scheduler', 5);
             System.assertNotEquals(null, jobId, '5 minute interval should be valid');
         } catch (Exception e) {
             System.assert(false, '5 minute interval should not throw: ' + e.getMessage());
@@ -117,7 +117,7 @@ private class UniversalIntegrationSchedulerTest {
     static void testScheduleUniversalScheduler_30MinuteInterval() {
         Test.startTest();
         try {
-            String jobId = UniversalIntegrationScheduler.scheduleUniversalSchedler('30 Min Scheduler', 30);
+            String jobId = UniversalIntegrationScheduler.scheduleUniversalScheduler('30 Min Scheduler', 30);
             System.assertNotEquals(null, jobId, '30 minute interval should be valid');
         } catch (Exception e) {
             System.assert(false, '30 minute interval should not throw: ' + e.getMessage());

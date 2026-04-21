@@ -105,6 +105,10 @@ public class GraphQLCursorPaginationStrategy extends PaginationStrategy {
             // Extract node objects from edges
             List<Object> records = new List<Object>();
             for (Object edge : edges) {
+                if (!(edge instanceof Map<String, Object>)) {
+                    Logger.warn('Unexpected edge format, skipping');
+                    continue;
+                }
                 Map<String, Object> edgeMap = (Map<String, Object>) edge;
                 if (edgeMap.containsKey('node')) {
                     records.add(edgeMap.get('node'));
@@ -112,8 +116,13 @@ public class GraphQLCursorPaginationStrategy extends PaginationStrategy {
             }
 
             PaginationState nextState = createNextState(response, state);
-            if (hasNextPage && String.isNotBlank(endCursor) && nextState != null) {
-                nextState.setCustomData(CURSOR_KEY, endCursor);
+            if (hasNextPage && nextState != null) {
+                if (String.isBlank(endCursor)) {
+                    Logger.warn('GraphQL hasNextPage=true but endCursor is blank for mapping: ' + mapping?.DeveloperName + '. Stopping pagination to prevent loop.');
+                    hasNextPage = false;
+                } else {
+                    nextState.setCustomData(CURSOR_KEY, endCursor);
+                }
             }
 
             logResponseSummary(response, records, hasNextPage);

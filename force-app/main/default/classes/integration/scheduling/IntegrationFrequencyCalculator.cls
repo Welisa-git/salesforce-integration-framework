@@ -68,18 +68,19 @@ public class IntegrationFrequencyCalculator {
         }
         
         DateTime nextTime = lastRunTime;
-        
-        switch on frequencyType {
-            when 'Hourly' {
+        String normalizedType = String.isBlank(frequencyType) ? '' : frequencyType.toLowerCase();
+
+        switch on normalizedType {
+            when 'hourly' {
                 nextTime = lastRunTime.addHours(frequencyValue);
             }
-            when 'Daily' {
+            when 'daily' {
                 nextTime = lastRunTime.addDays(frequencyValue);
             }
-            when 'Weekly' {
+            when 'weekly' {
                 nextTime = lastRunTime.addDays(frequencyValue * 7);
             }
-            when 'Custom Minutes' {
+            when 'custom minutes' {
                 nextTime = lastRunTime.addMinutes(frequencyValue);
             }
             when else {
