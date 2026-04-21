@@ -198,20 +198,33 @@ Service is auto-discovered by naming: `[TargetObject]SyncService.cls`
 
 ### Step 6: Schedule the Integration
 
-Create an **Apex Schedule** or use **Flow**:
+**Option A: Universal Scheduler (recommended)**
 
-**Option A: Apex Batch Schedule**
+One scheduled job handles all active mappings. Each mapping controls its own frequency via `Execution_Frequency_Type__c` + `Execution_Frequency_Value__c`.
+
 ```apex
-// Schedule in Setup > Apex Classes > Schedule Apex
-String jobName = 'Compano Account Sync';
-String cronExpression = '0 0 * * * ?'; // Daily at midnight
-System.schedule(jobName, cronExpression, new IntegrationSchedulable('Account'));
+// One-time setup in Execute Anonymous:
+UniversalIntegrationScheduler.scheduleUniversalSchedler('Integration_Master_Scheduler', 15);
 ```
 
-**Option B: Flow-based Trigger**
-1. Create a Flow
-2. Add HTTP Request element calling your PullQueueable
-3. Or directly enqueue: `new PullQueueable('Account').enqueueJob()`
+Supported frequency types on `Integration_Mapping__mdt`:
+| `Execution_Frequency_Type__c` | `Execution_Frequency_Value__c` | Meaning |
+|---|---|---|
+| `Hourly` | `2` | Every 2 hours |
+| `Daily` | `1` | Once per day |
+| `Weekly` | `1` | Once per week |
+| `Custom Minutes` | `30` | Every 30 minutes |
+
+Per-mapping execution state is tracked in `IntegrationExecutionState__c` (Hierarchy Custom Setting):
+- `Last_Run_Date__c` — last successful run
+- `Next_Scheduled_Time__c` — when the next run is expected
+- `Last_Status__c` — `Success`, `Failed`, or `Skipped`
+
+**Option B: Legacy single-endpoint scheduler**
+```apex
+String cronExpression = '0 0 * * * ?'; // Daily at midnight
+System.schedule('Compano Sync', cronExpression, new IntegrationSchedulable('Compano'));
+```
 
 ### Step 7: Run the Integration
 
@@ -295,7 +308,9 @@ force-app/main/default/
 │   │   └── test/                                   # Queueable tests
 │   │
 │   └── scheduling/
-│       ├── IntegrationSchedulable.cls              # Schedulable wrapper
+│       ├── UniversalIntegrationScheduler.cls       # Master scheduler (recommended)
+│       ├── IntegrationFrequencyCalculator.cls      # Per-mapping frequency logic
+│       ├── IntegrationSchedulable.cls              # Legacy single-endpoint scheduler
 │       ├── ThrottledIntegrationRunner.cls          # Throttling logic
 │       └── test/                                   # Scheduling tests
 │

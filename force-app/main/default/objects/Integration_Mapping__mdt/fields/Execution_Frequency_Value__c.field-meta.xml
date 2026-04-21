@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Execution_Frequency_Value__c</fullName>
+    <defaultValue>1</defaultValue>
+    <description>Frequency value: hours for Hourly, days for Daily/Weekly, or custom minutes for Custom Minutes type</description>
+    <externalId>false</externalId>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <label>Execution Frequency Value</label>
+    <precision>5</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <type>Number</type>
+</CustomField>

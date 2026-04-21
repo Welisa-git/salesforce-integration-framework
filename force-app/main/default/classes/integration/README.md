@@ -27,7 +27,9 @@ Async batch processing for API data:
 
 ### `/scheduling`
 Scheduled and throttled execution:
-- **IntegrationSchedulable.cls** - Schedulable job for periodic sync operations.
+- **UniversalIntegrationScheduler.cls** - Single master scheduler that checks all active mappings and only enqueues jobs when their configured frequency is due. **Recommended** over individual scheduled jobs.
+- **IntegrationFrequencyCalculator.cls** - Determines whether a mapping should execute based on `Execution_Frequency_Type__c` and `Execution_Frequency_Value__c`. Supports `Hourly`, `Daily`, `Weekly`, `Custom Minutes`.
+- **IntegrationSchedulable.cls** - Legacy: schedulable job for a single endpoint with a fixed cron expression.
 - **ThrottledIntegrationRunner.cls** - Wraps queueable execution with configurable rate-limiting.
 
 ---
@@ -49,7 +51,13 @@ Scheduled and throttled execution:
    - Upserts into Salesforce
    - Chains next page or next mapping
 
-4. **Scheduling**: `IntegrationSchedulable` triggers sync on a schedule (configurable via job scheduling UI).
+4. **Scheduling (aanbevolen)**: Stel één `UniversalIntegrationScheduler` in die elke 5–15 minuten draait. Hij controleert per mapping de `Execution_Frequency_Type__c` en slaat over als het interval nog niet verstreken is.
+   ```apex
+   UniversalIntegrationScheduler.scheduleUniversalSchedler('Integration_Master_Scheduler', 15);
+   ```
+   Per mapping staat de uitvoerstatus in `IntegrationExecutionState__c` (Hierarchy Custom Setting).
+
+5. **Scheduling (legacy)**: `IntegrationSchedulable` kan nog steeds gebruikt worden voor één endpoint met een vaste cron expressie.
 
 ---
 
