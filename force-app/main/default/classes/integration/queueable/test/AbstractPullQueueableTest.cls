@@ -171,7 +171,8 @@ private class AbstractPullQueueableTest {
 
             Test.stopTest();
 
-            System.assert(true, 'Successfully ran execute method');
+            Integration_Pagination_State__c savedState = Integration_Pagination_State__c.getInstance(TEST_MAPPING_NAME);
+            System.assertNotEquals(null, savedState?.Last_Run_Date__c, 'Last run time should be saved after successful execute()');
 
         } catch(Exception e) {
             System.debug('Error in test: ' + e.getMessage() + '\n' + e.getStackTraceString());

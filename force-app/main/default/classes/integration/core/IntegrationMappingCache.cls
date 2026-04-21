@@ -8,6 +8,7 @@ public virtual class IntegrationMappingCache {
     // --- Additions for Test Mocking ---
     @TestVisible private static Map<String, Integration_Mapping__mdt> mockMappingsByName = null;
     @TestVisible private static Map<String, Map<Decimal, Integration_Mapping__mdt>> mockMappingsByEndpoint = null;
+    @TestVisible private static List<Integration_Endpoint__mdt> mockActiveEndpoints = null;
     
     public static Integration_Mapping__mdt getMappingByEndpointAndOrder(String endpointName, Decimal syncOrder) {
         // Input validation
@@ -61,11 +62,11 @@ public virtual class IntegrationMappingCache {
         }
         
         // --- Existing Cache/SOQL Logic ---
-        if (!mappingByNameCache.containsKey(mappingName)) {
-            loadMappingByName(mappingName);
+        if (!mappingByNameCache.containsKey(lowerCaseName)) {
+            loadMappingByName(lowerCaseName);
         }
-        
-        return mappingByNameCache.get(mappingName);
+
+        return mappingByNameCache.get(lowerCaseName);
     }
     
     public static List<Integration_Mapping__mdt> getMappingsForEndpoint(String endpointName) {
@@ -172,6 +173,9 @@ public virtual class IntegrationMappingCache {
      * @return List<Integration_Endpoint__mdt> List of all active endpoints
      */
     public static List<Integration_Endpoint__mdt> getAllActiveEndpoints() {
+        if (Test.isRunningTest() && mockActiveEndpoints != null) {
+            return mockActiveEndpoints;
+        }
         try {
             List<Integration_Endpoint__mdt> endpoints = [
                 SELECT DeveloperName, Active__c, Named_Credential__c, Timeout__c,
@@ -180,8 +184,12 @@ public virtual class IntegrationMappingCache {
                 FROM Integration_Endpoint__mdt
                 WHERE Active__c = true
                 ORDER BY DeveloperName
+                LIMIT 500
             ];
 
+            if (endpoints.size() == 500) {
+                Logger.warn('getAllActiveEndpoints: result truncated at 500 — some endpoints may be missing');
+            }
             Logger.debug('Retrieved ' + endpoints.size() + ' active endpoints');
             return endpoints;
         } catch (Exception e) {
@@ -219,9 +227,9 @@ public virtual class IntegrationMappingCache {
             Map<Decimal, Integration_Mapping__mdt> endpointMappings = new Map<Decimal, Integration_Mapping__mdt>();
             for (Integration_Mapping__mdt mapping : mappings) {
                 endpointMappings.put(mapping.Sync_Order__c, mapping);
-                mappingByNameCache.put(mapping.DeveloperName, mapping);
+                mappingByNameCache.put(mapping.DeveloperName.toLowerCase(), mapping);
             }
-            
+
             mappingCache.put(endpointName, endpointMappings);
             Logger.debug('Loaded ' + mappings.size() + ' mappings for endpoint: ' + endpointName);
         } catch (Exception e) {
@@ -278,6 +286,7 @@ public virtual class IntegrationMappingCache {
         }
         mockMappingsByName = null;
         mockMappingsByEndpoint = null;
+        mockActiveEndpoints = null;
         System.debug('Mock mappings cleared.');
     }
 
@@ -300,7 +309,7 @@ public virtual class IntegrationMappingCache {
         mockMappingsByName.put(mappingName.toLowerCase(), mockMapping); 
         System.debug('Mock mapping set for: ' + mappingName);
         
-        // Also add to endpoint-based cache if endpoint relationship exists
+        // Also add to endpoint-based mock cache if endpoint relationship exists
         if (mockMapping.Endpoint__r != null && String.isNotBlank(mockMapping.Endpoint__r.DeveloperName)) {
             String endpointName = mockMapping.Endpoint__r.DeveloperName.toLowerCase();
             Decimal syncOrder = mockMapping.Sync_Order__c;
@@ -321,5 +330,18 @@ public virtual class IntegrationMappingCache {
                 mappingCache.get(mockMapping.Endpoint__r.DeveloperName).put(syncOrder, mockMapping);
             }
         }
+    }
+
+    /**
+     * @description Sets mock active endpoints for testing getAllActiveEndpoints(). Only usable in tests.
+     * @param endpoints List of mock Integration_Endpoint__mdt records
+     */
+    @TestVisible
+    public static void setMockActiveEndpoints(List<Integration_Endpoint__mdt> endpoints) {
+        if (!Test.isRunningTest()) {
+            System.debug(LoggingLevel.ERROR, 'IntegrationMappingCache.setMockActiveEndpoints called outside test context.');
+            return;
+        }
+        mockActiveEndpoints = endpoints;
     }
 }

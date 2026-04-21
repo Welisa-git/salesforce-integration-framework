@@ -1,18 +1,15 @@
 public virtual class PullQueueable extends AbstractPullQueueable {
     
-    private static Boolean chainNextQueueable = true;
-    private Integer currentRetries;
-    private static final Integer MAX_RETRIES = 3;
-    
+    private Boolean chainNextQueueable = true;
+
     public class PullQueueableException extends Exception {}
-    
+
     /**
      * @description Constructor for PullQueueable
      */
-    public PullQueueable(String endpointName, String mappingName, String operationName, 
+    public PullQueueable(String endpointName, String mappingName, String operationName,
                         DateTime lastRunTime, PaginationState paginationState, Integer syncOrder) {
         super(endpointName, mappingName, operationName, lastRunTime, paginationState, syncOrder);
-        this.currentRetries = 0;
         Logger.debug('PullQueueable initialized: ' + endpointName + ' / ' + mappingName + ' / Order: ' + syncOrder);
     }
     
@@ -43,9 +40,8 @@ public virtual class PullQueueable extends AbstractPullQueueable {
             // Initialize pagination strategy factory with last run time
             PaginationStrategyFactory.setLastRunTime(lastRunTime);
             
-            // Create and initialize pagination strategy with correct mapping
+            // Create and initialize pagination strategy (factory already calls initialize internally)
             PaginationStrategy strategy = PaginationStrategyFactory.createStrategy(endpoint);
-            strategy.initialize(endpoint, mapping, lastRunTime);
             Logger.debug('Created strategy for pagination type: ' + endpoint.Pagination_Type__c);
 
             // Get request URL and optional body (GraphQL strategies override these)
@@ -68,15 +64,7 @@ public virtual class PullQueueable extends AbstractPullQueueable {
                 String jsonRecords = JSON.serialize(pageResult.getRecords());
                 System.debug(LoggingLevel.DEBUG, 'Serialized records summary: ' + summarizeTextForLog(jsonRecords));
                 
-                // Use mock or real processing depending on context
-                List<SObject> recordsList;
-                if (Test.isRunningTest()) {
-                    // In test context, bypass DataWeave and create test records directly
-                    recordsList = createTestRecords(jsonRecords);
-                } else {
-                    // In real context, use DataWeave processing
-                    recordsList = processDataweaveMapping(jsonRecords);
-                }
+                List<SObject> recordsList = processDataweaveMapping(jsonRecords);
                 
                 Logger.info('Completed DataWeave transformation - record count: ' + recordsList.size());
                 Logger.saveLog(); // Save logs after DataWeave processing
@@ -115,14 +103,7 @@ public virtual class PullQueueable extends AbstractPullQueueable {
             
         } catch (Exception e) {
             Logger.error('Pull operation failed: ' + e.getMessage() + '\n' + e.getStackTraceString());
-            Logger.saveLog(); // Save logs when exception occurs
-            if (currentRetries < MAX_RETRIES) {
-                currentRetries++;
-                return IntegrationResult.createError(
-                    'Retrying operation',
-                    'Error: ' + e.getMessage()
-                );
-            }
+            Logger.saveLog();
             throw e;
         }
     }
@@ -161,27 +142,6 @@ public virtual class PullQueueable extends AbstractPullQueueable {
         }
     }
     
-    /**
-     * @description Creates test records for testing - bypasses DataWeave
-     * @param jsonData The JSON serialized records
-     * @return List<SObject> List of test SObjects for processing
-     */
-    private List<SObject> createTestRecords(String jsonData) {
-        try {
-            List<SObject> testRecords = new List<SObject>();
-            // Create a test Account record with a dynamic field approach
-            Account testAccount = new Account(Name = 'Test Account');
-            // Use put to set the external ID field without compile-time checking
-            // This assumes the field will be added to the schema before runtime
-            // or that the tests will mock the database operations
-            testRecords.add(testAccount);
-            return testRecords;
-        } catch (Exception e) {
-            Logger.error('Error creating test records: ' + e.getMessage());
-            return new List<SObject>();
-        }
-    }
-
     /**
      * @description Filters and processes SObjects - override in subclass for custom filtering
      * @param records The records to filter

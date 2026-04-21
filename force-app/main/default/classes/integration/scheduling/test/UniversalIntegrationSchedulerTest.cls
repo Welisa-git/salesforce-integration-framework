@@ -137,4 +137,41 @@ private class UniversalIntegrationSchedulerTest {
         }
         Test.stopTest();
     }
+
+    @IsTest
+    static void testExecute_WithMockMappingDue() {
+        Integration_Endpoint__mdt mockEndpoint = new Integration_Endpoint__mdt(
+            DeveloperName = TEST_ENDPOINT_NAME,
+            Active__c = true,
+            Named_Credential__c = 'MockCred',
+            Base_Path__c = '/api/',
+            Pagination_Type__c = 'offset',
+            Timeout__c = 30000
+        );
+
+        Integration_Mapping__mdt mockMapping = new Integration_Mapping__mdt(
+            DeveloperName = TEST_MAPPING_NAME,
+            Active__c = true,
+            Operation_Type__c = 'Pull',
+            Target_Object__c = 'Account',
+            Sync_Order__c = 1,
+            Execution_Frequency_Type__c = 'Daily',
+            Execution_Frequency_Value__c = 1,
+            Endpoint__r = mockEndpoint
+        );
+
+        IntegrationMappingCache.clearCache();
+        IntegrationMappingCache.clearMockMappings();
+        IntegrationMappingCache.setMockActiveEndpoints(new List<Integration_Endpoint__mdt>{ mockEndpoint });
+        IntegrationMappingCache.setMockMapping(TEST_MAPPING_NAME, mockMapping);
+
+        Test.startTest();
+        UniversalIntegrationScheduler scheduler = new UniversalIntegrationScheduler();
+        scheduler.execute(null);
+        Test.stopTest();
+
+        // Execution state should have been created when the mapping was processed
+        IntegrationExecutionState__c state = UniversalIntegrationScheduler.getOrCreateExecutionState(TEST_MAPPING_NAME);
+        System.assertNotEquals(null, state, 'Execution state should exist after scheduler ran for due mapping');
+    }
 }

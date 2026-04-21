@@ -104,14 +104,26 @@ public virtual class PaginationState {
      * @return PaginationState New state instance
      */
     public static PaginationState fromJson(String jsonStr) {
-        Map<String, Object> stateMap = (Map<String, Object>)JSON.deserializeUntyped(jsonStr);
-        Integer offset = (Integer)stateMap.get('offset');
-        Integer pageSize = (Integer)stateMap.get('pageSize');
-        Map<String, Object> customData = stateMap.containsKey('customData') ? 
-            (Map<String, Object>)stateMap.get('customData') : 
-            new Map<String, Object>();
-        
-        return new PaginationState(offset, pageSize, customData);
+        if (String.isBlank(jsonStr)) {
+            return new PaginationState(0, 100);
+        }
+        try {
+            Object parsed = JSON.deserializeUntyped(jsonStr);
+            if (!(parsed instanceof Map<String, Object>)) {
+                Logger.warn('PaginationState.fromJson: unexpected format, returning default state');
+                return new PaginationState(0, 100);
+            }
+            Map<String, Object> stateMap = (Map<String, Object>) parsed;
+            Integer offset = stateMap.get('offset') instanceof Integer ? (Integer) stateMap.get('offset') : 0;
+            Integer pageSize = stateMap.get('pageSize') instanceof Integer ? (Integer) stateMap.get('pageSize') : 100;
+            Map<String, Object> customData = stateMap.get('customData') instanceof Map<String, Object>
+                ? (Map<String, Object>) stateMap.get('customData')
+                : new Map<String, Object>();
+            return new PaginationState(offset, pageSize, customData);
+        } catch (Exception e) {
+            Logger.error('PaginationState.fromJson failed: ' + e.getMessage());
+            return new PaginationState(0, 100);
+        }
     }
     
     /**

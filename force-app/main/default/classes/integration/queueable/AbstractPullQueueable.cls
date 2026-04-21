@@ -46,7 +46,7 @@ public abstract class AbstractPullQueueable extends AbstractIntegrationService i
             // Initialize logger tags if Nebula Logger is enabled
             initializeLoggerTags();
             
-            Logger.info('Starting integration execution for: ' + operationName + ' (Endpoint: ' + endpointName + ', Mapping: ' + mappingName + ')');
+            applyTags(Logger.info('Starting integration execution for: ' + operationName + ' (Endpoint: ' + endpointName + ', Mapping: ' + mappingName + ')'));
             // Log batch size here, assuming it's initialized by now (e.g., via mapping or subclass)
             // If batchSize isn't a member, remove this log or adjust how it's determined
             // Logger.info('Batch Size: ' + this.batchSize); 
@@ -76,7 +76,7 @@ public abstract class AbstractPullQueueable extends AbstractIntegrationService i
 
             // After processing records
             if (result != null && result.isSuccess) {
-                Logger.info('Successfully pulled data from external system for ' + operationName);
+                applyTags(Logger.info('Successfully pulled data from external system for ' + operationName));
             }
 
             PaginationResult pageResult = handlePaginationResult(result);
@@ -103,8 +103,8 @@ public abstract class AbstractPullQueueable extends AbstractIntegrationService i
                 saveLastRunTime(DateTime.now());
             }
         } catch (Exception e) {
-            Logger.error('Pull operation failed: ' + e.getMessage() + 
-                        '\nStack trace: ' + e.getStackTraceString());
+            applyTags(Logger.error('Pull operation failed: ' + e.getMessage() +
+                        '\nStack trace: ' + e.getStackTraceString()));
             throw e;
         }
     }
@@ -334,10 +334,8 @@ public abstract class AbstractPullQueueable extends AbstractIntegrationService i
                     Logger.debug('Calling postProcessUpsert for ' + objectType + 
                                 ' using stored sync service instance with ' + successfulUpserts.size() + ' records.');
                     // Call postProcessUpsert on the STORED instance
-                    if (this.currentSyncServiceInstance != null) {
-                        this.currentSyncServiceInstance.postProcessUpsert(successfulUpserts, originalRecordsMap);
-                        Logger.debug('Finished postProcessUpsert for ' + objectType);
-                    }
+                    this.currentSyncServiceInstance.postProcessUpsert(successfulUpserts, originalRecordsMap);
+                    Logger.debug('Finished postProcessUpsert for ' + objectType);
                 } catch (Exception e) {
                     Logger.error('Error during postProcessUpsert for ' + objectType + ': ' + 
                                 e.getMessage() + '\n' + e.getStackTraceString());
@@ -485,46 +483,42 @@ public abstract class AbstractPullQueueable extends AbstractIntegrationService i
     }
 
     /**
-     * @description Initialize and apply logger tags from the current mapping
-     * Parses comma-separated tags from Logger_Tags__c field and stores them for use in logging
+     * @description Parsed logger tags from mapping's Logger_Tags__c field, applied to Nebula Logger entries
      */
     @TestVisible
-    protected String loggerTagsString;
-    
-    private void initializeLoggerTags() {
-        if (!isNebulaLoggerEnabled()) {
-            loggerTagsString = '';
-            return;
-        }
-        
-        if (mapping == null) {
-            loggerTagsString = '';
-            return;
-        }
+    protected List<String> loggerTags = new List<String>();
 
+    private void initializeLoggerTags() {
+        loggerTags = new List<String>();
+        if (!isNebulaLoggerEnabled() || mapping == null) {
+            return;
+        }
         try {
-            // Dynamic access to avoid compilation error if field doesn't exist yet
             Object tagsValue = mapping.get('Logger_Tags__c');
             if (tagsValue == null || String.isBlank(String.valueOf(tagsValue))) {
-                loggerTagsString = '';
                 return;
             }
-            
-            String tagsString = String.valueOf(tagsValue);
-            List<String> tags = new List<String>();
-            for (String tag : tagsString.split(',')) {
-                String trimmedTag = tag.trim();
-                if (String.isNotBlank(trimmedTag)) {
-                    tags.add(trimmedTag);
+            for (String tag : String.valueOf(tagsValue).split(',')) {
+                String t = tag.trim();
+                if (String.isNotBlank(t)) {
+                    loggerTags.add(t);
                 }
-            }
-            
-            if (!tags.isEmpty()) {
-                loggerTagsString = String.join(tags, ', ');
-                // Tags are stored in loggerTagsString for potential use in logging
             }
         } catch (Exception e) {
             Logger.error('Failed to initialize logger tags: ' + e.getMessage());
+        }
+    }
+
+    /**
+     * @description Applies loggerTags to a Nebula Logger entry builder
+     * @param entry The LogEntryEventBuilder returned by Logger.info/warn/error/debug
+     */
+    @TestVisible
+    protected void applyTags(LogEntryEventBuilder entry) {
+        if (entry != null && !loggerTags.isEmpty()) {
+            for (String tag : loggerTags) {
+                entry.addTag(tag);
+            }
         }
     }
 }

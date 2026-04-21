@@ -163,7 +163,8 @@ public class UniversalIntegrationScheduler implements Schedulable {
      */
     private static String buildCronExpression(Integer intervalMinutes) {
         if (intervalMinutes >= 60) {
-            return '0 0 * * * ?'; // every hour
+            Integer hours = intervalMinutes / 60;
+            return '0 0 0/' + hours + ' * * ?'; // e.g. 0 0 0/2 * * ? = every 2 hours
         }
         return '0 0/' + intervalMinutes + ' * * * ?'; // e.g. 0 0/10 * * * ?
     }

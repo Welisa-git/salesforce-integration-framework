@@ -90,14 +90,19 @@ public class GraphQLCursorPaginationStrategy extends PaginationStrategy {
                 Map<String, Object> fieldMap = (Map<String, Object>) fieldValue;
                 if (!fieldMap.containsKey('edges')) continue;
 
-                edges = (List<Object>) fieldMap.get('edges');
+                Object edgesObj = fieldMap.get('edges');
+                if (!(edgesObj instanceof List<Object>)) continue;
+                edges = (List<Object>) edgesObj;
 
                 if (fieldMap.containsKey('pageInfo')) {
-                    Map<String, Object> pageInfo = (Map<String, Object>) fieldMap.get('pageInfo');
-                    hasNextPage = pageInfo.containsKey('hasNextPage')
-                        ? (Boolean) pageInfo.get('hasNextPage') : false;
-                    endCursor = pageInfo.containsKey('endCursor')
-                        ? (String) pageInfo.get('endCursor') : null;
+                    Object pageInfoObj = fieldMap.get('pageInfo');
+                    if (pageInfoObj instanceof Map<String, Object>) {
+                        Map<String, Object> pageInfo = (Map<String, Object>) pageInfoObj;
+                        hasNextPage = pageInfo.containsKey('hasNextPage')
+                            ? (Boolean) pageInfo.get('hasNextPage') : false;
+                        endCursor = pageInfo.containsKey('endCursor')
+                            ? (String) pageInfo.get('endCursor') : null;
+                    }
                 }
                 break;
             }
