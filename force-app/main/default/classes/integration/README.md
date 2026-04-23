@@ -778,4 +778,3 @@ System.debug(state?.Last_Status__c);
 - **Logging**: Nebula Logger — all framework classes log via `Logger.info/warn/error/debug`. Log entries for a mapping carry the tags from `Integration_Mapping__mdt.Logger_Tags__c` for easy filtering.
 - **Auth**: Named Credentials + External Credentials — protocol-agnostic, works for both REST and GraphQL.
 - **DataWeave**: scripts must be in `force-app/main/default/staticresources/` (or as DataWeave resources) and referenced by the `Dataweave_Map_Name__c` field on the mapping.
-- **Full developer reference**: see [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md).
