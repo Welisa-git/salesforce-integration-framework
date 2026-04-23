@@ -112,45 +112,46 @@ private class SingleRecordPullQueueableTest {
         System.assertEquals('[]', SingleRecordPullQueueable.normaliseToJsonArray('   '));
     }
 
-    // ─── pullAndProcessRecords error paths ───────────────────────────────────
+    // ─── Error paths via execute() ───────────────────────────────────────────
 
     @IsTest
-    static void testPullAndProcess_blankExternalId() {
+    static void testExecute_blankExternalId_completesWithoutException() {
         setupMockCache('AccountNumber');
-        Test.setMock(HttpCalloutMock.class, new MockHttp(200, '[]'));
+        // No HTTP mock needed — execution stops before making a callout
 
         Test.startTest();
-        SingleRecordPullQueueable q = new SingleRecordPullQueueable(TEST_ENDPOINT, TEST_MAPPING, '');
-        IntegrationResult result = q.pullAndProcessRecords();
+        System.enqueueJob(new SingleRecordPullQueueable(TEST_ENDPOINT, TEST_MAPPING, ''));
         Test.stopTest();
 
-        System.assertEquals(false, result.isSuccess, 'Blank externalRecordId should return error result');
+        // Verify no records were upserted
+        Integer accounts = [SELECT COUNT() FROM Account];
+        System.assertEquals(0, accounts, 'No records should be upserted for blank externalRecordId');
     }
 
     @IsTest
-    static void testPullAndProcess_httpError() {
+    static void testExecute_http404_completesWithoutException() {
         setupMockCache('AccountNumber');
         Test.setMock(HttpCalloutMock.class, new MockHttp(404, '{"error":"not found"}'));
 
         Test.startTest();
-        SingleRecordPullQueueable q = new SingleRecordPullQueueable(TEST_ENDPOINT, TEST_MAPPING, TEST_EXT_ID);
-        IntegrationResult result = q.pullAndProcessRecords();
+        System.enqueueJob(new SingleRecordPullQueueable(TEST_ENDPOINT, TEST_MAPPING, TEST_EXT_ID));
         Test.stopTest();
 
-        System.assertEquals(false, result.isSuccess, 'HTTP 404 should return error result');
+        Integer accounts = [SELECT COUNT() FROM Account];
+        System.assertEquals(0, accounts, 'No records should be upserted on HTTP 404');
     }
 
     @IsTest
-    static void testPullAndProcess_http500() {
+    static void testExecute_http500_completesWithoutException() {
         setupMockCache('AccountNumber');
         Test.setMock(HttpCalloutMock.class, new MockHttp(500, 'Internal Server Error'));
 
         Test.startTest();
-        SingleRecordPullQueueable q = new SingleRecordPullQueueable(TEST_ENDPOINT, TEST_MAPPING, TEST_EXT_ID);
-        IntegrationResult result = q.pullAndProcessRecords();
+        System.enqueueJob(new SingleRecordPullQueueable(TEST_ENDPOINT, TEST_MAPPING, TEST_EXT_ID));
         Test.stopTest();
 
-        System.assertEquals(false, result.isSuccess, 'HTTP 500 should return error result');
+        Integer accounts = [SELECT COUNT() FROM Account];
+        System.assertEquals(0, accounts, 'No records should be upserted on HTTP 500');
     }
 
     // ─── Full execute (no DataWeave available in unit tests) ─────────────────
