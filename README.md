@@ -4,48 +4,46 @@ An org-agnostic, configuration-driven Salesforce integration framework for build
 
 ## Features
 
-- **🔧 Configuration-Driven**: All behavior configured via Custom Metadata Type records
+- **🔧 Configuration-Driven**: All behavior configured via Custom Metadata Type records — no code changes to add a new integration
 - **📊 Smart Pagination**: Built-in REST (offset) and GraphQL (cursor) pagination strategies
 - **🔗 Multi-Protocol**: REST (GET) and GraphQL (POST) supported via the same pipeline
-- **⏱️ State Tracking**: Per-mapping execution state via Custom Settings
-- **📝 Logging**: Integrated Nebula Logger with per-integration and per-mapping tag control
-- **🚀 Queueable Execution**: Async job scheduling with chained pagination support
+- **⏱️ State Tracking**: Per-mapping execution state via Custom Settings (auto-created on first successful run)
+- **📝 Logging**: Nebula Logger with per-mapping tag support (`Logger_Tags__c`) applied to all key log entries
+- **🚀 Queueable Execution**: Async batch sync + single-record sync (`SingleRecordPullQueueable`)
+- **🎯 Event-Driven**: Invocable action (`IntegrationSyncRequestAction`) for Flow and Platform Event triggered syncs
+- **🔁 Auto-Retry**: Failed mappings are automatically re-run on the next scheduler tick (no manual intervention needed)
 - **🧪 Fully Tested**: >75% code coverage with comprehensive test suite
 - **🔄 Org-Agnostic**: Zero hardcoded business logic or org-specific references
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│ UniversalIntegrationScheduler (recommended)                 │
-│ • Runs every N minutes, checks all active mappings          │
-│ • Enqueues only mappings whose frequency interval elapsed   │
-└─────────────────────┬───────────────────────────────────────┘
-                      │  (or IntegrationSchedulable for single endpoint)
-┌─────────────────────▼───────────────────────────────────────┐
-│ PullQueueable (Queueable + Database.AllowsCallouts)         │
-│ • Extends AbstractPullQueueable                             │
-│ • Implements pullAndProcessRecords()                        │
-└─────────────────────┬───────────────────────────────────────┘
-                      │
-┌─────────────────────▼───────────────────────────────────────┐
-│ AbstractPullQueueable (Base Logic)                          │
-│ • HTTP call via named credential                            │
-│ • Pagination strategy resolution                            │
-│ • Per-mapping state persistence (Integration_Pagination_State__c) │
-│ • Nebula Logger integration                                 │
-│ • TypedSyncService delegation (optional)                    │
-└─────────────────────┬───────────────────────────────────────┘
-                      │
-        ┌─────────────┴──────────────┐
-        │                            │
-┌───────▼──────┐          ┌──────────▼────────┐
-│ DataWeave    │          │ TypedSyncService  │
-│ Transform    │          │ (Custom Impl)     │
-│ • Mapping    │          │ • Lookups         │
-│ • Transforms │          │ • Validation      │
-└──────────────┘          │ • Post-upsert     │
-                          └───────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                        ENTRY POINTS                              │
+│                                                                  │
+│  UniversalIntegrationScheduler  ←  Scheduled job (every N min)  │
+│  IntegrationSyncRequestAction   ←  Flow / Platform Event        │
+│  Anonymous Apex                 ←  Manual / one-off             │
+└────────────────────────┬─────────────────────────────────────────┘
+                         │
+           ┌─────────────┴──────────────────┐
+           │                                │
+┌──────────▼──────────┐          ┌──────────▼──────────────────┐
+│  PullQueueable      │          │  SingleRecordPullQueueable  │
+│  (full batch sync,  │          │  (single record by ext ID,  │
+│   paginated)        │          │   bypasses pagination)      │
+└──────────┬──────────┘          └──────────┬──────────────────┘
+           │                                │
+           └──────────────┬─────────────────┘
+                          │ extends
+┌─────────────────────────▼────────────────────────────────────────┐
+│ AbstractPullQueueable (Base Logic)                               │
+│ • HTTP call via named credential                                 │
+│ • DataWeave transform + External ID upsert                       │
+│ • Per-mapping state persistence (Integration_Pagination_State__c)│
+│ • Nebula Logger with per-mapping tags                            │
+│ • TypedSyncService delegation (optional)                         │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 ## Getting Started
@@ -233,16 +231,25 @@ System.schedule('My API Sync', cronExpression, new IntegrationSchedulable('My_AP
 
 ### Step 7: Run the Integration Manually
 
+**Full batch sync:**
 ```apex
-// Via Execute Anonymous — replace with your actual DeveloperNames:
 Integration_Mapping__mdt m = IntegrationMappingCache.getMappingByName('My_API_Products');
 System.enqueueJob(new PullQueueable(
     m.Endpoint__r.DeveloperName,  // endpointName
     m.DeveloperName,               // mappingName
-    m.Endpoint__r.DeveloperName,  // operationName
+    'ManualSync',                  // operationName (label for logs)
     null,                          // lastRunTime (null = full sync)
     null,                          // paginationState (null = first page)
     1                              // syncOrder
+));
+```
+
+**Single record sync** — fetches one record by external ID:
+```apex
+System.enqueueJob(new SingleRecordPullQueueable(
+    'My_Endpoint',    // Integration_Endpoint__mdt.DeveloperName
+    'My_Mapping',     // Integration_Mapping__mdt.DeveloperName
+    'PROD-12345'      // external system ID of the record
 ));
 ```
 
@@ -312,6 +319,8 @@ Tracks scheduling state per mapping. **Auto-managed** by `UniversalIntegrationSc
 ```
 force-app/main/default/
 ├── classes/integration/
+│   ├── IntegrationSyncRequestAction.cls            # Invocable action for Flow / Platform Events
+│   │
 │   ├── core/
 │   │   ├── AbstractIntegrationService.cls          # Base service: makeCallout(method, urlPath[, body])
 │   │   ├── IntegrationResult.cls                   # Wrapper for results
@@ -330,15 +339,19 @@ force-app/main/default/
 │   │
 │   ├── queueable/
 │   │   ├── AbstractPullQueueable.cls               # Base queueable logic
-│   │   ├── PullQueueable.cls                       # Concrete queueable
+│   │   ├── PullQueueable.cls                       # Full batch sync (paginated)
+│   │   ├── SingleRecordPullQueueable.cls           # Single-record sync by external ID
 │   │   └── test/                                   # Queueable tests
 │   │
-│   └── scheduling/
-│       ├── UniversalIntegrationScheduler.cls       # Master scheduler (recommended)
-│       ├── IntegrationFrequencyCalculator.cls      # Per-mapping frequency logic
-│       ├── IntegrationSchedulable.cls              # Legacy single-endpoint scheduler
-│       ├── ThrottledIntegrationRunner.cls          # Throttling logic
-│       └── test/                                   # Scheduling tests
+│   ├── scheduling/
+│   │   ├── UniversalIntegrationScheduler.cls       # Master scheduler (recommended)
+│   │   ├── IntegrationFrequencyCalculator.cls      # Per-mapping frequency logic
+│   │   ├── IntegrationSchedulable.cls              # Legacy single-endpoint scheduler
+│   │   ├── ThrottledIntegrationRunner.cls          # Throttling logic
+│   │   └── test/                                   # Scheduling tests
+│   │
+│   └── test/
+│       └── IntegrationSyncRequestActionTest.cls
 │
 └── objects/
     ├── Integration_Pagination_State__c/            # Run time per mapping (List Custom Setting)
@@ -386,13 +399,77 @@ force-app/main/default/
 2. **Name convention:** `[TargetObject]SyncService` (auto-discovered, no registration needed)
    - `Target_Object__c = Product2` → `Product2SyncService.cls`
 
+### Single Record Sync
+
+`SingleRecordPullQueueable` fetches one record by external ID, skipping pagination entirely:
+
+1. Builds URL as `Base_Path__c + Resource_Path__c + externalRecordId + /`
+2. Makes a GET callout, normalises the response to a JSON array
+3. Passes it through the mapping's DataWeave script
+4. Upserts the result using the configured external ID field
+
+```apex
+System.enqueueJob(new SingleRecordPullQueueable(
+    'My_Endpoint',   // Integration_Endpoint__mdt.DeveloperName
+    'My_Mapping',    // Integration_Mapping__mdt.DeveloperName
+    'PROD-12345'     // external system ID
+));
+```
+
+### Event-Driven Execution (Flow / Platform Events)
+
+`IntegrationSyncRequestAction` is an `@InvocableMethod` (label: **"Trigger Integration Sync"**, category: **Integration**) that can be called from any Flow, Process Builder, or Platform Event trigger.
+
+**Inputs:**
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `Mapping Name` | Yes | `DeveloperName` of the `Integration_Mapping__mdt` record |
+| `External Record ID` | No | External system ID — leave blank for full batch sync |
+| `Operation Name` | No | Label for this job in logs (defaults to `FlowTriggered_<MappingName>`) |
+
+**Outputs:**
+
+| Variable | Description |
+|----------|-------------|
+| `Success` | `true` if the job was enqueued successfully |
+| `Error Message` | Description of what went wrong (only set when `Success = false`) |
+
+- **Blank External Record ID** → enqueues `PullQueueable` (full batch sync)
+- **External Record ID set** → enqueues `SingleRecordPullQueueable`
+
+**Recommended Flow architecture:**
+```
+Platform Event: Integration_Sync_Request__e
+    │  (published by external system)
+    ▼
+Record-Triggered Flow
+    │
+    ▼
+Action: "Trigger Integration Sync"
+    Mapping Name       = {!$Record.Mapping_Name__c}
+    External Record ID = {!$Record.External_Record_Id__c}
+```
+
+**Publishing the event from an external system:**
+```http
+POST /services/data/v60.0/sobjects/Integration_Sync_Request__e
+Authorization: Bearer <access_token>
+Content-Type: application/json
+
+{
+  "Mapping_Name__c": "My_Mapping",
+  "External_Record_Id__c": "PROD-12345"
+}
+```
+
 ### Customizing Logging
 
 Per-integration Nebula Logger support:
 
 1. **Enable per endpoint:** Set `Integration_Endpoint__mdt.Enable_Nebula_Logger__c = true`
-2. **Set per-mapping tags:** Set `Integration_Mapping__mdt.Logger_Tags__c = "tag1,tag2"`
-3. Tags are parsed and stored at execution start; available in `AbstractPullQueueable.loggerTagsString`
+2. **Set per-mapping tags:** Set `Integration_Mapping__mdt.Logger_Tags__c = "tag1,tag2"` (comma-separated)
+3. Tags are parsed at execution start and applied to key log entries via `applyTags()` — making it easy to filter logs by mapping in Nebula Logger's UI
 
 ## Testing
 
