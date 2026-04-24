@@ -111,15 +111,18 @@ public class IntegrationFrequencyCalculator {
         }
         
         try {
-            IntegrationExecutionState__c state = IntegrationExecutionState__c.getInstance(mappingName);
-            if (state == null) {
-                state = new IntegrationExecutionState__c(Name = mappingName);
-            }
-            
+            List<IntegrationExecutionState__c> existing = [
+                SELECT Id, Name, Last_Run_Date__c, Next_Scheduled_Time__c, Last_Status__c
+                FROM IntegrationExecutionState__c WHERE Name = :mappingName LIMIT 1
+            ];
+            IntegrationExecutionState__c state = existing.isEmpty()
+                ? new IntegrationExecutionState__c(Name = mappingName)
+                : existing[0];
+
             state.Last_Run_Date__c = lastRunTime != null ? lastRunTime : DateTime.now();
             state.Next_Scheduled_Time__c = getNextExecutionTime(frequencyType, frequencyValue, state.Last_Run_Date__c);
             state.Last_Status__c = 'Success';
-            
+
             upsert state Name;
             
             Logger.debug(
@@ -142,11 +145,13 @@ public class IntegrationFrequencyCalculator {
         }
         
         try {
-            IntegrationExecutionState__c state = IntegrationExecutionState__c.getInstance(mappingName);
-            if (state == null) {
-                state = new IntegrationExecutionState__c(Name = mappingName);
-            }
-            
+            List<IntegrationExecutionState__c> existing = [
+                SELECT Id, Name, Last_Status__c FROM IntegrationExecutionState__c WHERE Name = :mappingName LIMIT 1
+            ];
+            IntegrationExecutionState__c state = existing.isEmpty()
+                ? new IntegrationExecutionState__c(Name = mappingName)
+                : existing[0];
+
             state.Last_Status__c = 'Failed';
             upsert state Name;
             

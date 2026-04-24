@@ -212,15 +212,16 @@ public virtual class IntegrationMappingCache {
                        Target_Object__c, Last_Modified_Date_Field__c, Active__c,
                        Last_Modified_Date_Override__c, Resource_Path__c,
                        Sync_Order__c, Page_Size__c, External_Id_Field_Overide__c,
+                       Execution_Frequency_Type__c, Execution_Frequency_Value__c,
                        Endpoint__r.DeveloperName, Endpoint__r.Id,
                        Endpoint__r.Named_Credential__c,
                        Endpoint__r.Timeout__c, Endpoint__r.Active__c,
                        Endpoint__r.Pagination_Type__c,
                        Endpoint__r.Pagination_Config__c, Endpoint__r.External_ID_Field__c,
                        Endpoint__r.Base_Path__c
-                FROM Integration_Mapping__mdt 
+                FROM Integration_Mapping__mdt
                 WHERE Endpoint__r.DeveloperName = :endpointName
-                AND Active__c = true 
+                AND Active__c = true
                 AND Operation_Type__c = 'Pull'
             ];
             

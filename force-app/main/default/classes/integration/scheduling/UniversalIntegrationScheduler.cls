@@ -52,6 +52,7 @@ public class UniversalIntegrationScheduler implements Schedulable {
             
         } catch (Exception e) {
             Logger.error('Error in UniversalIntegrationScheduler: ' + e.getMessage() + '\n' + e.getStackTraceString());
+            Logger.saveLog();
         }
     }
     
@@ -83,8 +84,10 @@ public class UniversalIntegrationScheduler implements Schedulable {
      */
     private static DateTime getLastExecutionTime(String mappingName) {
         try {
-            IntegrationExecutionState__c state = IntegrationExecutionState__c.getInstance(mappingName);
-            return state?.Last_Run_Date__c;
+            List<IntegrationExecutionState__c> states = [
+                SELECT Last_Run_Date__c FROM IntegrationExecutionState__c WHERE Name = :mappingName LIMIT 1
+            ];
+            return states.isEmpty() ? null : states[0].Last_Run_Date__c;
         } catch (Exception e) {
             Logger.debug('Could not retrieve execution state for ' + mappingName + ': ' + e.getMessage());
             return null;
@@ -179,11 +182,14 @@ public class UniversalIntegrationScheduler implements Schedulable {
             return null;
         }
         try {
-            IntegrationExecutionState__c state = IntegrationExecutionState__c.getInstance(mappingName);
-            if (state == null) {
-                state = new IntegrationExecutionState__c(Name = mappingName);
+            List<IntegrationExecutionState__c> states = [
+                SELECT Id, Name, Last_Run_Date__c, Next_Scheduled_Time__c, Last_Status__c
+                FROM IntegrationExecutionState__c WHERE Name = :mappingName LIMIT 1
+            ];
+            if (!states.isEmpty()) {
+                return states[0];
             }
-            return state;
+            return new IntegrationExecutionState__c(Name = mappingName);
         } catch (Exception e) {
             Logger.error('Error getting execution state for ' + mappingName + ': ' + e.getMessage());
             return null;
