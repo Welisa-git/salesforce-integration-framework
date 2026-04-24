@@ -204,9 +204,11 @@ Service is auto-discovered by naming convention: `[TargetObject]SyncService.cls`
 One scheduled job handles all active mappings. Each mapping controls its own frequency via `Execution_Frequency_Type__c` + `Execution_Frequency_Value__c`.
 
 ```apex
-// One-time setup in Execute Anonymous — runs every 5 minutes:
-UniversalIntegrationScheduler.scheduleUniversalScheduler('Integration_Master_Scheduler', 5);
+// One-time setup in Execute Anonymous — runs every hour:
+UniversalIntegrationScheduler.scheduleUniversalScheduler('Integration_Master_Scheduler', 60);
 ```
+
+> **Production note**: Salesforce production orgs reject step-value cron expressions for minutes (`0 0/5 * * * ?`). Use multiples of 60 for the interval (e.g. 60, 120) or schedule with an explicit cron string via `System.schedule()` if you need sub-hourly runs.
 
 Supported frequency types on `Integration_Mapping__mdt`:
 | `Execution_Frequency_Type__c` | `Execution_Frequency_Value__c` | Meaning |
@@ -216,9 +218,9 @@ Supported frequency types on `Integration_Mapping__mdt`:
 | `Weekly` | `1` | Once per week |
 | `Custom Minutes` | `30` | Every 30 minutes |
 
-> Tip: Set the scheduler interval equal to your shortest mapping frequency (e.g., if a mapping runs every 5 minutes, schedule the runner every 5 minutes).
+> Tip: Set the scheduler interval equal to your shortest mapping frequency. For hourly mappings, 60 minutes is the recommended interval.
 
-Per-mapping execution state is tracked in `IntegrationExecutionState__c` (Hierarchy Custom Setting):
+Per-mapping execution state is tracked in `IntegrationExecutionState__c` (Custom Setting — queried via SOQL `WHERE Name = :mappingDeveloperName`):
 - `Last_Run_Date__c` — last successful run timestamp
 - `Next_Scheduled_Time__c` — when the next run is expected
 - `Last_Status__c` — `Success`, `Failed`, or `Skipped`
@@ -303,7 +305,7 @@ Persists the last successful run time per mapping. **Auto-managed** by `Abstract
 
 **Key:** `DeveloperName` of the mapping (e.g. `My_API_Products`)
 
-#### IntegrationExecutionState__c (Hierarchy Custom Setting)
+#### IntegrationExecutionState__c (Custom Setting)
 
 Tracks scheduling state per mapping. **Auto-managed** by `UniversalIntegrationScheduler`.
 
@@ -312,7 +314,7 @@ Tracks scheduling state per mapping. **Auto-managed** by `UniversalIntegrationSc
 - `Next_Scheduled_Time__c` — Calculated next run time
 - `Last_Status__c` — `Success`, `Failed`, or `Skipped`
 
-**Key:** `DeveloperName` of the mapping
+**Key:** `Name` field = `DeveloperName` of the mapping (queried via SOQL, not `getInstance()`)
 
 ## Code Structure
 
@@ -355,7 +357,7 @@ force-app/main/default/
 │
 └── objects/
     ├── Integration_Pagination_State__c/            # Run time per mapping (List Custom Setting)
-    └── IntegrationExecutionState__c/               # Scheduler state per mapping (Hierarchy Custom Setting)
+    └── IntegrationExecutionState__c/               # Scheduler state per mapping (Custom Setting, queried via SOQL)
 ```
 
 ## Extending the Framework
@@ -492,6 +494,10 @@ sf apex run test -n GraphQLCursorPaginationStrategyTest -w 30
    sf apex log list
    sf apex log get -n [LogId]
    ```
+   Or query Nebula Logger entries if enabled:
+   ```bash
+   sf data query --query "SELECT Message__c, LoggingLevel__c, Timestamp__c FROM LogEntry__c ORDER BY Timestamp__c DESC LIMIT 50"
+   ```
 
 2. **Verify metadata:**
    - `Integration_Endpoint__mdt.Active__c = true`?
@@ -504,6 +510,27 @@ sf apex run test -n GraphQLCursorPaginationStrategyTest -w 30
    System.debug(m);
    System.debug(m.Endpoint__r);
    ```
+
+### Scheduler fires but no PullQueueable jobs are enqueued
+
+The most common cause: querying `Integration_Mapping__mdt` without `Execution_Frequency_Type__c` or `Execution_Frequency_Value__c` in the SELECT raises a silent `SObjectException` that is caught inside the scheduler, aborting the loop before any job is enqueued. Nebula Logger doesn't surface the error because `Logger.saveLog()` is only called on error if it is explicitly placed in the catch block.
+
+**Symptoms:**
+- `CronTrigger.TimesTriggered` increments each hour
+- No `PullQueueable` entries in `AsyncApexJob`
+- No Nebula log entries for the scheduler run
+
+**Resolution:** Ensure `loadMappingsForEndpoint()` in `IntegrationMappingCache` selects both frequency fields. The current version includes them; if you upgrade or backport code, verify the SOQL SELECT list.
+
+**Inspect the scheduled job:**
+```bash
+sf data query --query "SELECT CronJobDetail.Name, State, TimesTriggered, PreviousFireTime, NextFireTime FROM CronTrigger WHERE CronJobDetail.Name = 'Integration_Master_Scheduler'"
+```
+
+**Check for enqueued jobs:**
+```bash
+sf data query --query "SELECT ApexClass.Name, Status, CreatedDate, ExtendedStatus FROM AsyncApexJob WHERE ApexClass.Name = 'PullQueueable' ORDER BY CreatedDate DESC LIMIT 10"
+```
 
 ### State not persisting
 
